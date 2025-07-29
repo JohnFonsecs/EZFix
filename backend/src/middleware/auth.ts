@@ -1,15 +1,36 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
-export const autenticar = (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ erro: "Token ausente" });
+interface TokenPayload {
+  id: string;
+  // outros campos que você tenha no payload do seu token
+}
 
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "secreto") as any;
-        req.userId = decoded.userId;
-        next();
-    } catch {
-        res.status(401).json({ erro: "Token inv�lido" });
-    }
+export const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader) {
+    return res.status(401).json({ error: "Token não fornecido" });
+  }
+
+  // Format: Bearer <token>
+  const parts = authHeader.split(" ");
+
+  if (parts.length !== 2) {
+    return res.status(401).json({ error: "Erro no token" });
+  }
+
+  const [scheme, token] = parts;
+
+  if (!/^Bearer$/i.test(scheme)) {
+    return res.status(401).json({ error: "Token mal formatado" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as TokenPayload;
+    req.userId = decoded.id;
+    return next();
+  } catch (err) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
 };

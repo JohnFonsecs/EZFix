@@ -5,7 +5,7 @@ import {
     criarRedacao,
     avaliarRedacao
 } from "../controllers/redacaoController";
-import { autenticar } from "../middleware/auth";
+import { authMiddleware as autenticar } from "../middleware/auth";
 
 const router = Router();
 
