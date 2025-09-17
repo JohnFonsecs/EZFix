@@ -1,0 +1,5 @@
+public/favicon.ico: This file is the icon that appears in the browser tab. 
+
+To create a favicon, you typically need an image file in .ico format. Since I cannot generate binary files directly, you can create or download a favicon.ico file from an online favicon generator or design tool. 
+
+Once you have your favicon.ico file, place it in the public directory of your frontend project.
