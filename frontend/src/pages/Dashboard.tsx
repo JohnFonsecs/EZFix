@@ -678,6 +678,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 isVisible={textoModalOpen}
                 onClose={fecharTexto}
                 redacao={redacaoTextoSelecionada}
+                onSave={async (redacaoId: string, novoTexto: string) => {
+                    try {
+                        // Atualizar o texto no backend
+                        await redacaoService.updateTexto(redacaoId, novoTexto);
+                        
+                        // Recarregar a lista de redações para refletir a mudança
+                        await loadRedacoes();
+                        
+                        // Mostrar mensagem de sucesso
+                        setShowSuccessMessage(true);
+                        setTimeout(() => setShowSuccessMessage(false), 3000);
+                    } catch (error) {
+                        console.error('Erro ao atualizar texto:', error);
+                        throw error;
+                    }
+                }}
             />
 
         </div>

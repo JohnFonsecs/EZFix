@@ -116,6 +116,11 @@ export const redacaoService = {
     return response.data;
   },
 
+  updateTexto: async (id: string, textoExtraido: string): Promise<Redacao> => {
+    const response = await api.put(`/redacoes/${id}`, { textoExtraido });
+    return response.data;
+  },
+
   delete: async (id: string): Promise<void> => {
     await api.delete(`/redacoes/${id}`);
   },

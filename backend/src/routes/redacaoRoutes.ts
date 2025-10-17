@@ -4,6 +4,7 @@ import {
     listarRedacoes,
     obterRedacao,
     criarRedacao,
+    atualizarRedacao,
     excluirRedacao,
     obterAnaliseEnem,
     reanalisarTexto,
@@ -51,6 +52,13 @@ router.post("/reanalisar", autenticar, reanalisarTexto);
  * @access  Privado
  */
 router.get("/:id", autenticar, obterRedacao);
+
+/**
+ * @route   PUT /api/redacoes/:id
+ * @desc    Atualiza uma redação específica (texto ou título).
+ * @access  Privado
+ */
+router.put("/:id", autenticar, atualizarRedacao);
 
 /**
  * @route   DELETE /api/redacoes/:id
