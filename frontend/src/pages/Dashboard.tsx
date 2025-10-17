@@ -618,7 +618,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 )}
                             </div>
 
-                            <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 pt-2">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={uploadLoading || (!selectedFile && !newRedacao.imagemUrl)}
+                                    className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {uploadLoading ? 'Processando...' : 'Confirmar'}
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -629,13 +636,6 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                     className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                     Cancelar
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={uploadLoading || (!selectedFile && !newRedacao.imagemUrl)}
-                                    className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    {uploadLoading ? 'Processando...' : 'Confirmar'}
                                 </button>
                             </div>
                         </form>
