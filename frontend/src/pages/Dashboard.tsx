@@ -285,9 +285,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     </nav>
 
                     <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="bg-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-sm">
+                        <button 
+                            onClick={() => navigate('/perfil')}
+                            className="bg-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-sm hover:bg-purple-700 transition-colors cursor-pointer"
+                            title="Ver perfil"
+                        >
                             {currentUser?.nome ? currentUser.nome.charAt(0).toUpperCase() : 'U'}
-                        </div>
+                        </button>
                         <span className="text-gray-700 text-sm sm:text-base hidden sm:inline">
                             {currentUser?.nome || 'Usuário'}
                         </span>

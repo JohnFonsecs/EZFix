@@ -84,16 +84,39 @@ const VisualizarTexto: React.FC<VisualizarTextoProps> = ({ isVisible, onClose, r
                 <div className="p-6 overflow-y-auto flex-1">
                     {textoAtual ? (
                         <div>
+                            {/* Alerta se o texto ainda não foi analisado */}
+                            {!redacao.notaFinal && !isEditing && (
+                                <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div className="flex items-start gap-3">
+                                        <span className="text-2xl">💡</span>
+                                        <div>
+                                            <h4 className="font-semibold text-yellow-800 mb-1">
+                                                Texto ainda não analisado
+                                            </h4>
+                                            <p className="text-sm text-yellow-700">
+                                                Este é o momento ideal para revisar e editar o texto extraído pelo OCR antes de realizar a análise ENEM. 
+                                                Clique em "Editar Texto" abaixo para fazer correções.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
                             <h3 className="text-lg font-semibold text-gray-800 mb-3">
                                 {isEditing ? '✏️ Edite o texto abaixo:' : '🔍 Texto como foi lido e formatado:'}
                             </h3>
                             {isEditing ? (
-                                <textarea
-                                    value={editedText}
-                                    onChange={(e) => setEditedText(e.target.value)}
-                                    className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-sans text-base text-gray-800 leading-relaxed resize-none"
-                                    placeholder="Digite ou edite o texto aqui..."
-                                />
+                                <>
+                                    <textarea
+                                        value={editedText}
+                                        onChange={(e) => setEditedText(e.target.value)}
+                                        className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-sans text-base text-gray-800 leading-relaxed resize-none"
+                                        placeholder="Digite ou edite o texto aqui..."
+                                    />
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        💡 Dica: Revise erros de OCR, quebras de linha e formatação antes de salvar.
+                                    </p>
+                                </>
                             ) : (
                                 <div className="bg-gray-50 border rounded-lg p-4">
                                     <pre className="whitespace-pre-wrap font-sans text-base text-gray-800 leading-relaxed">

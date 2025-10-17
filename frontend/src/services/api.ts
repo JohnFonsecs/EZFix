@@ -41,6 +41,11 @@ export const authService = {
     return response.data;
   },
 
+  changePassword: async (senhaAtual: string, novaSenha: string): Promise<{ mensagem: string }> => {
+    const response = await api.put('/auth/change-password', { senhaAtual, novaSenha });
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
