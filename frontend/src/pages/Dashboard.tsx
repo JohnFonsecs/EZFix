@@ -272,23 +272,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-purple-600 to-blue-600">
             {/* Header */}
-            <header className="bg-white shadow-lg p-4">
-                <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <header className="bg-white shadow-lg p-3 sm:p-4">
+                <div className="max-w-7xl mx-auto flex justify-between items-center flex-wrap gap-2">
                     <div className="flex items-center space-x-2">
-                        <span className="text-2xl">📝</span>
-                        <h1 className="text-xl font-bold text-gray-800">EZ Sentence Fix</h1>
+                        <span className="text-xl sm:text-2xl">📝</span>
+                        <h1 className="text-base sm:text-xl font-bold text-gray-800">EZ Sentence Fix</h1>
                     </div>
 
-                    <nav className="hidden md:flex space-x-8">
-                        <button onClick={() => navigate('/dashboard')} className="text-purple-600 font-semibold bg-transparent">Dashboard</button>
-                        <button onClick={() => navigate('/redacoes')} className="text-gray-600 hover:text-gray-800 bg-transparent">Redações</button>
+                    <nav className="hidden md:flex space-x-4 lg:space-x-8">
+                        <button onClick={() => navigate('/dashboard')} className="text-purple-600 font-semibold bg-transparent text-sm lg:text-base">Dashboard</button>
+                        <button onClick={() => navigate('/redacoes')} className="text-gray-600 hover:text-gray-800 bg-transparent text-sm lg:text-base">Redações</button>
                     </nav>
 
-                    <div className="flex items-center space-x-4">
-                        <div className="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <button 
+                            onClick={() => navigate('/perfil')}
+                            className="bg-purple-600 text-white w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center font-bold text-sm hover:bg-purple-700 transition-colors cursor-pointer"
+                            title="Ver perfil"
+                        >
                             {currentUser?.nome ? currentUser.nome.charAt(0).toUpperCase() : 'U'}
-                        </div>
-                        <span className="text-gray-700">
+                        </button>
+                        <span className="text-gray-700 text-sm sm:text-base hidden sm:inline">
                             {currentUser?.nome || 'Usuário'}
                         </span>
                         <button
@@ -296,7 +300,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 authService.logout();
                                 onLogout();
                             }}
-                            className="text-red-600 hover:text-red-800 text-sm"
+                            className="text-red-600 hover:text-red-800 text-xs sm:text-sm font-medium px-2 py-1"
                         >
                             Sair
                         </button>
@@ -304,22 +308,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 </div>
             </header>
 
-            <div className="max-w-7xl mx-auto p-4 space-y-4">
+            <div className="max-w-7xl mx-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
                 {/* Layout em grid 2x2 */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-[calc(100vh-160px)]">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 min-h-[calc(100vh-160px)]">
                     
                     {/* Anexar imagem - Área grande superior esquerda */}
                     <div className="lg:col-span-2 lg:row-span-1">
-                        <div className="bg-white rounded-lg shadow-lg p-6 overflow-y-auto flex flex-col h-full">
+                        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 overflow-y-auto flex flex-col h-full">
                             {showSuccessMessage && (
-                                <div className="bg-green-50 border border-green-200 p-3 rounded-lg mb-4">
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-green-800 text-sm">
+                                <div className="bg-green-50 border border-green-200 p-2 sm:p-3 rounded-lg mb-3 sm:mb-4">
+                                    <div className="flex justify-between items-center gap-2">
+                                        <p className="text-green-800 text-xs sm:text-sm">
                                             ✨ Texto analisado com sucesso!!
                                         </p>
                                         <button
                                             onClick={() => setShowSuccessMessage(false)}
-                                            className="text-green-600 hover:text-green-800"
+                                            className="text-green-600 hover:text-green-800 text-lg"
                                         >
                                             ✕
                                         </button>
@@ -328,13 +332,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                             )}
 
                             <div className="text-center flex-1 flex flex-col justify-center">
-                                <div className="flex items-center justify-center space-x-2 mb-6">
-                                    <span className="text-2xl">📝</span>
-                                    <h2 className="text-2xl font-bold text-gray-800">Anexar Imagem</h2>
+                                <div className="flex items-center justify-center space-x-2 mb-4 sm:mb-6">
+                                    <span className="text-xl sm:text-2xl">📝</span>
+                                    <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Anexar Imagem</h2>
                                 </div>
 
                                 <div
-                                    className={`border-2 border-dashed rounded-lg p-12 mb-6 transition-colors cursor-pointer ${isDragging
+                                    className={`border-2 border-dashed rounded-lg p-6 sm:p-12 mb-4 sm:mb-6 transition-colors cursor-pointer ${isDragging
                                             ? 'border-purple-500 bg-purple-50'
                                             : 'border-gray-300 hover:border-purple-400'
                                         }`}
@@ -351,14 +355,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                         className="hidden"
                                     />
                                     <div className="text-center">
-                                        <div className="bg-purple-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <span className="text-3xl">📄</span>
+                                        <div className="bg-purple-100 w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                                            <span className="text-2xl sm:text-3xl">📄</span>
                                         </div>
                                         {selectedFile ? (
                                             <div>
-                                                <p className="text-green-600 font-medium mb-3 text-lg">✅ Arquivo selecionado:</p>
-                                                <p className="text-gray-700 text-base font-medium">{selectedFile.name}</p>
-                                                <p className="text-gray-500 text-sm">
+                                                <p className="text-green-600 font-medium mb-2 sm:mb-3 text-sm sm:text-lg">✅ Arquivo selecionado:</p>
+                                                <p className="text-gray-700 text-sm sm:text-base font-medium break-all px-2">{selectedFile.name}</p>
+                                                <p className="text-gray-500 text-xs sm:text-sm mt-1">
                                                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                                                 </p>
                                                 <button
@@ -367,15 +371,15 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                                         e.stopPropagation();
                                                         setSelectedFile(null);
                                                     }}
-                                                    className="mt-3 text-red-600 hover:text-red-800 text-sm"
+                                                    className="mt-2 sm:mt-3 text-red-600 hover:text-red-800 text-xs sm:text-sm font-medium"
                                                 >
                                                     Remover arquivo
                                                 </button>
                                             </div>
                                         ) : (
                                             <div>
-                                                <p className="text-gray-600 mb-3 text-lg">Arraste a redação aqui</p>
-                                                <p className="text-gray-500 text-base">ou clique para selecionar</p>
+                                                <p className="text-gray-600 mb-2 sm:mb-3 text-base sm:text-lg">Arraste a redação aqui</p>
+                                                <p className="text-gray-500 text-sm sm:text-base">ou clique para selecionar</p>
                                             </div>
                                         )}
                                     </div>
@@ -383,7 +387,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
                                 <button
                                     onClick={() => setShowUploadModal(true)}
-                                    className="w-full bg-purple-600 text-white py-4 px-8 rounded-lg hover:bg-purple-700 mb-8 text-lg font-semibold"
+                                    className="w-full bg-purple-600 text-white py-3 sm:py-4 px-6 sm:px-8 rounded-lg hover:bg-purple-700 mb-6 sm:mb-8 text-base sm:text-lg font-semibold transition-colors"
                                 >
                                     🤖 Processar com IA
                                 </button>
@@ -525,31 +529,31 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
                     {/* Estatísticas - Inferior esquerda */}
                     <div className="lg:col-span-1 lg:row-span-1">
-                        <div className="bg-white rounded-lg shadow-lg p-4 flex flex-col justify-center h-full">
-                            <div className="flex items-center justify-center space-x-2 mb-6">
-                                <span className="text-xl">📊</span>
-                                <h2 className="text-lg font-bold text-gray-800">Estatísticas</h2>
+                        <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 flex flex-col justify-center h-full min-h-[250px]">
+                            <div className="flex items-center justify-center space-x-2 mb-4 sm:mb-6">
+                                <span className="text-lg sm:text-xl">📊</span>
+                                <h2 className="text-base sm:text-lg font-bold text-gray-800">Estatísticas</h2>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 flex-1 items-center">
-                                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                                    <p className="text-xs text-gray-600 mb-2">Hoje</p>
-                                    <p className="text-2xl font-bold text-blue-600">{redacoesHoje}</p>
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 flex-1 items-center">
+                                <div className="text-center p-3 sm:p-4 bg-blue-50 rounded-lg">
+                                    <p className="text-xs text-gray-600 mb-1 sm:mb-2">Hoje</p>
+                                    <p className="text-xl sm:text-2xl font-bold text-blue-600">{redacoesHoje}</p>
                                 </div>
 
-                                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                                    <p className="text-xs text-gray-600 mb-2">Processando</p>
-                                    <p className="text-2xl font-bold text-orange-600">{processando}</p>
+                                <div className="text-center p-3 sm:p-4 bg-orange-50 rounded-lg">
+                                    <p className="text-xs text-gray-600 mb-1 sm:mb-2">Processando</p>
+                                    <p className="text-xl sm:text-2xl font-bold text-orange-600">{processando}</p>
                                 </div>
 
-                                <div className="text-center p-4 bg-yellow-50 rounded-lg">
-                                    <p className="text-xs text-gray-600 mb-2">Pendentes</p>
-                                    <p className="text-2xl font-bold text-yellow-600">{pendentes}</p>
+                                <div className="text-center p-3 sm:p-4 bg-yellow-50 rounded-lg">
+                                    <p className="text-xs text-gray-600 mb-1 sm:mb-2">Pendentes</p>
+                                    <p className="text-xl sm:text-2xl font-bold text-yellow-600">{pendentes}</p>
                                 </div>
 
-                                <div className="text-center p-4 bg-green-50 rounded-lg">
-                                    <p className="text-xs text-gray-600 mb-2">Corrigidas</p>
-                                    <p className="text-2xl font-bold text-green-600">{corrigidas}</p>
+                                <div className="text-center p-3 sm:p-4 bg-green-50 rounded-lg">
+                                    <p className="text-xs text-gray-600 mb-1 sm:mb-2">Corrigidas</p>
+                                    <p className="text-xl sm:text-2xl font-bold text-green-600">{corrigidas}</p>
                                 </div>
                             </div>
                         </div>
@@ -564,28 +568,29 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
             {/* Modal de Upload */}
             {showUploadModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-                        <h3 className="text-lg font-bold text-gray-800 mb-4">Enviar Nova Redação</h3>
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 overflow-y-auto">
+                    <div className="min-h-screen flex items-center justify-center p-3 sm:p-4">
+                        <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 w-full max-w-md md:max-w-lg my-4 max-h-[90vh] overflow-y-auto">
+                            <h3 className="text-base sm:text-lg font-bold text-gray-800 mb-3 sm:mb-4">Enviar Nova Redação</h3>
 
-                        <form onSubmit={handleCreateRedacao} className="space-y-4">
+                            <form onSubmit={handleCreateRedacao} className="space-y-3 sm:space-y-4">
                             {selectedFile && (
-                                <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                                    <h4 className="text-sm font-medium text-gray-700 mb-2">Preview da Imagem</h4>
+                                <div className="mb-3 sm:mb-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
+                                    <h4 className="text-xs sm:text-sm font-medium text-gray-700 mb-2">Preview da Imagem</h4>
                                     <p className="text-xs text-gray-500 mb-2">A imagem será enviada inteira para o OCR.</p>
-                                    <div className="relative bg-white border rounded-md overflow-hidden" style={{ maxWidth: 520 }}>
+                                    <div className="relative bg-white border rounded-md overflow-hidden w-full">
                                         <img
                                             ref={el => { if (el) imgPreviewRef.current = el; }}
                                             src={URL.createObjectURL(selectedFile)}
                                             alt="Preview"
-                                            className="w-full h-auto max-h-[360px] object-contain"
+                                            className="w-full h-auto max-h-[250px] sm:max-h-[360px] object-contain"
                                         />
                                     </div>
                                 </div>
                             )}
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                                     Título da Redação
                                 </label>
                                 <input
@@ -593,13 +598,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                     value={newRedacao.titulo}
                                     onChange={(e) => setNewRedacao({ ...newRedacao, titulo: e.target.value })}
                                     required
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                                     placeholder="Ex: Redação sobre sustentabilidade"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                                     URL da Imagem (opcional)
                                 </label>
                                 <input
@@ -607,7 +612,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                     value={newRedacao.imagemUrl}
                                     onChange={(e) => setNewRedacao({ ...newRedacao, imagemUrl: e.target.value })}
                                     disabled={!!selectedFile}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100 disabled:text-gray-500"
                                     placeholder="https://exemplo.com/imagem.jpg (ou use upload acima)"
                                 />
                                 {selectedFile && (
@@ -617,7 +622,14 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 )}
                             </div>
 
-                            <div className="flex space-x-3">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
+                                <button
+                                    type="submit"
+                                    disabled={uploadLoading || (!selectedFile && !newRedacao.imagemUrl)}
+                                    className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {uploadLoading ? 'Processando...' : 'Confirmar'}
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -625,19 +637,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                         setNewRedacao({ titulo: '', imagemUrl: '' });
                                         setSelectedFile(null);
                                     }}
-                                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                                    className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                     Cancelar
                                 </button>
-                                <button
-                                    type="submit"
-                                    disabled={uploadLoading || (!selectedFile && !newRedacao.imagemUrl)}
-                                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {uploadLoading ? 'Processando...' : 'Confirmar'}
-                                </button>
                             </div>
                         </form>
+                        </div>
                     </div>
                 </div>
             )}
@@ -676,6 +682,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 isVisible={textoModalOpen}
                 onClose={fecharTexto}
                 redacao={redacaoTextoSelecionada}
+                onSave={async (redacaoId: string, novoTexto: string) => {
+                    try {
+                        // Atualizar o texto no backend
+                        await redacaoService.updateTexto(redacaoId, novoTexto);
+                        
+                        // Recarregar a lista de redações para refletir a mudança
+                        await loadRedacoes();
+                        
+                        // Mostrar mensagem de sucesso
+                        setShowSuccessMessage(true);
+                        setTimeout(() => setShowSuccessMessage(false), 3000);
+                    } catch (error) {
+                        console.error('Erro ao atualizar texto:', error);
+                        throw error;
+                    }
+                }}
             />
 
         </div>

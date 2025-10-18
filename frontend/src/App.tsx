@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import RedacoesPage from './pages/RedacoesPage';
+import ProfilePage from './pages/ProfilePage';
 import { authService } from './services/api';
 import './index.css';
 
@@ -70,6 +71,16 @@ const App: React.FC = () => {
             element={
               isAuthenticated ? (
                 <RedacoesPage onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            } 
+          />
+          <Route 
+            path="/perfil" 
+            element={
+              isAuthenticated ? (
+                <ProfilePage onLogout={handleLogout} />
               ) : (
                 <Navigate to="/login" replace />
               )

@@ -170,6 +170,78 @@ export const obterRedacao = async (req: Request, res: Response) => {
     }
 };
 
+export const atualizarRedacao = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params;
+        const { textoExtraido, titulo } = req.body;
+
+        console.log(`📝 Atualizando redação ${id}...`);
+
+        const redacao = await prisma.redacao.findFirst({
+            where: { id, usuarioId: req.userId },
+        });
+        
+        if (!redacao) {
+            return res.status(404).json({ erro: "Redação não encontrada." });
+        }
+
+        // Se o texto foi atualizado, limpar cache e iniciar nova análise
+        if (textoExtraido !== undefined && textoExtraido !== redacao.textoExtraido) {
+            console.log(`✏️ Texto da redação ${id} foi editado. Limpando análise antiga...`);
+            
+            // Limpar cache e jobs de análise antiga
+            analiseCache.delete(id);
+            analiseJobs.delete(id);
+
+            // Atualizar com o novo texto e resetar notas
+            const redacaoAtualizada = await prisma.redacao.update({
+                where: { id },
+                data: {
+                    textoExtraido,
+                    titulo: titulo || redacao.titulo,
+                    notaGerada: null,
+                    notaFinal: null
+                }
+            });
+
+            // Iniciar nova análise automática em background
+            console.log("⚡ Iniciando análise ENEM do texto editado...");
+            setTimeout(async () => {
+                try {
+                    const analiseEnem = await analisarEnem(textoExtraido);
+                    await prisma.redacao.update({
+                        where: { id },
+                        data: { 
+                            notaGerada: analiseEnem.notaFinal1000,
+                            notaFinal: analiseEnem.notaFinal1000 
+                        }
+                    });
+                    
+                    // Adicionar ao cache
+                    analiseCache.set(id, { data: analiseEnem, cachedAt: Date.now() });
+                    
+                    console.log(`✅ Análise do texto editado concluída: ${analiseEnem.notaFinal1000}/1000`);
+                } catch (analyzeError) {
+                    console.error(`❌ Erro na análise do texto editado:`, analyzeError);
+                }
+            }, 1000);
+
+            return res.json(redacaoAtualizada);
+        }
+
+        // Se apenas o título foi atualizado
+        const redacaoAtualizada = await prisma.redacao.update({
+            where: { id },
+            data: { titulo: titulo || redacao.titulo }
+        });
+
+        return res.json(redacaoAtualizada);
+    } catch (error) {
+        console.error("❌ Erro ao atualizar redação:", error);
+        return res.status(500).json({ erro: "Ocorreu um erro no servidor." });
+    }
+};
+
 export const excluirRedacao = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;

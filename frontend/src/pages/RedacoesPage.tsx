@@ -115,9 +115,13 @@ const RedacoesPage: React.FC<RedacoesPageProps> = ({ onLogout }) => {
           </nav>
 
           <div className="flex items-center space-x-4">
-            <div className="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">
+            <button 
+              onClick={() => navigate('/perfil')}
+              className="bg-purple-600 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold hover:bg-purple-700 transition-colors cursor-pointer"
+              title="Ver perfil"
+            >
               {currentUser?.nome ? currentUser.nome.charAt(0).toUpperCase() : 'U'}
-            </div>
+            </button>
             <span className="text-gray-700">
               {currentUser?.nome || 'Usuário'}
             </span>
@@ -213,24 +217,27 @@ const RedacoesPage: React.FC<RedacoesPageProps> = ({ onLogout }) => {
                       {redacao.textoExtraido && redacao.textoExtraido.trim() !== '' && (
                         <>
                           <button 
-                            onClick={() => abrirAnalise(redacao.id.toString())}
-                            className="text-purple-600 hover:text-purple-800 text-xs font-medium bg-purple-50 px-3 py-2 rounded-lg hover:bg-purple-100 transition-colors"
-                          >
-                            📊 Análise
-                          </button>
-                          <button 
                             onClick={() => abrirTexto(redacao)}
                             className="text-blue-600 hover:text-blue-800 text-xs font-medium bg-blue-50 px-3 py-2 rounded-lg hover:bg-blue-100 transition-colors"
+                            title={redacao.notaFinal ? 'Ver texto extraído' : 'Editar texto antes da análise'}
                           >
-                            📄 Ver Texto
+                            {redacao.notaFinal ? '📄 Ver Texto' : '✏️ Editar Texto'}
+                          </button>
+                          <button 
+                            onClick={() => abrirAnalise(redacao.id.toString())}
+                            className="text-purple-600 hover:text-purple-800 text-xs font-medium bg-purple-50 px-3 py-2 rounded-lg hover:bg-purple-100 transition-colors"
+                            title={redacao.notaFinal ? 'Ver análise ENEM' : 'Iniciar análise ENEM'}
+                          >
+                            {redacao.notaFinal ? '📊 Ver Análise' : '🚀 Analisar'}
                           </button>
                         </>
                       )}
                       <button
                         onClick={() => handleDeleteRedacao(redacao.id)}
                         className="text-red-600 hover:text-red-800 text-xs font-medium px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="Excluir redação"
                       >
-                        🗑️ Excluir
+                        🗑️
                       </button>
                     </div>
                   </div>
@@ -256,6 +263,21 @@ const RedacoesPage: React.FC<RedacoesPageProps> = ({ onLogout }) => {
         isVisible={textoModalOpen}
         onClose={fecharTexto}
         redacao={redacaoTextoSelecionada}
+        onSave={async (redacaoId: string, novoTexto: string) => {
+          try {
+            // Atualizar o texto no backend
+            await redacaoService.updateTexto(redacaoId, novoTexto);
+            
+            // Recarregar a lista de redações para refletir a mudança
+            await loadRedacoes();
+            
+            // Mensagem de sucesso pode ser adicionada aqui se quiser
+            alert('Texto atualizado com sucesso! A análise será reprocessada.');
+          } catch (error) {
+            console.error('Erro ao atualizar texto:', error);
+            throw error;
+          }
+        }}
       />
     </div>
   );

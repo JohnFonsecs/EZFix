@@ -41,6 +41,11 @@ export const authService = {
     return response.data;
   },
 
+  changePassword: async (senhaAtual: string, novaSenha: string): Promise<{ mensagem: string }> => {
+    const response = await api.put('/auth/change-password', { senhaAtual, novaSenha });
+    return response.data;
+  },
+
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -113,6 +118,11 @@ export const redacaoService = {
 
   update: async (id: string, data: Partial<CreateRedacaoRequest>): Promise<Redacao> => {
     const response = await api.put(`/redacoes/${id}`, data);
+    return response.data;
+  },
+
+  updateTexto: async (id: string, textoExtraido: string): Promise<Redacao> => {
+    const response = await api.put(`/redacoes/${id}`, { textoExtraido });
     return response.data;
   },
 
