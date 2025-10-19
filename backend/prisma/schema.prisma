@@ -13,13 +13,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  ALUNO
+  PROFESSOR
+}
+
 model User {
   id        String    @id @default(uuid())
   nome      String
   email     String    @unique
   senhaHash String
+  role      UserRole  @default(ALUNO)
   criadoEm  DateTime  @default(now())
   redacoes  Redacao[]
+  turmas    Turma[]
+  matriculas Matricula[]
+  redacoesComoAluno Redacao[] @relation("RedacoesDoAluno")
+}
+
+model Turma {
+  id          String    @id @default(cuid())
+  nome        String
+  professorId String
+  professor   User      @relation(fields: [professorId], references: [id])
+  matriculas  Matricula[]
+  redacoes    Redacao[]
+  criadoEm    DateTime  @default(now())
+  atualizadoEm DateTime @updatedAt
+}
+
+model Matricula {
+  id      String @id @default(cuid())
+  alunoId String
+  aluno   User   @relation(fields: [alunoId], references: [id])
+  turmaId String
+  turma   Turma  @relation(fields: [turmaId], references: [id])
+  criadoEm DateTime @default(now())
+
+  @@unique([alunoId, turmaId])
 }
 
 model Redacao {
@@ -33,6 +64,10 @@ model Redacao {
 
   usuario   User   @relation(fields: [usuarioId], references: [id])
   usuarioId String
+  alunoId       String?
+  aluno      User?    @relation("RedacoesDoAluno", fields: [alunoId], references: [id])
+  turmaId       String?
+  turma         Turma?    @relation(fields: [turmaId], references: [id])
 
   avaliacoes Avaliacao[]
 }

@@ -1,95 +1,140 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, UserRole } from "@prisma/client"; // Adicionado UserRole
 import { Request, Response } from "express";
 import { extrairTextoDaImagem } from "../services/ocrService";
 import { analisarEnem, formatarTextoComLLM, AnaliseENEM } from "../services/ennAnalysisService";
-import { corrigirTextoOCR } from "../services/openaiService";
+import { chamarLLM as corrigirTextoOCR } from "../services/openaiService";
 
 const prisma = new PrismaClient();
-type AnaliseJob = { promise: Promise<any>; startedAt: number };
+type AnaliseJob = { promise: Promise<AnaliseENEM>; startedAt: number }; // Corrigido o tipo da Promise
 const analiseJobs = new Map<string, AnaliseJob>();
-// O cache armazena a análise pura
 const analiseCache = new Map<string, { data: AnaliseENEM; cachedAt: number }>();
 const ANALISE_TTL_MS = 10 * 60 * 1000;
 
-// --- Endpoints do Controller ---
+// --- FUNÇÃO AUXILIAR PARA INICIAR ANÁLISE EM BACKGROUND ---
+const iniciarAnaliseBackground = (redacaoId: string, textoParaAnalise: string) => {
+    console.log(`⚡ Iniciando análise ENEM para redação ${redacaoId}...`);
+    analiseCache.delete(redacaoId);
+    analiseJobs.delete(redacaoId);
+    const jobPromise = analisarEnem(textoParaAnalise); // analisarEnem retorna AnaliseENEM
+    analiseJobs.set(redacaoId, { promise: jobPromise, startedAt: Date.now() });
+    jobPromise.then(async (analiseEnem) => {
+        try {
+            await prisma.redacao.update({
+                where: { id: redacaoId },
+                data: { notaGerada: analiseEnem.notaFinal1000, notaFinal: analiseEnem.notaFinal1000 }
+            });
+            analiseCache.set(redacaoId, { data: analiseEnem, cachedAt: Date.now() });
+            console.log(`📊 Análise da redação ${redacaoId} concluída: ${analiseEnem.notaFinal1000}/1000`);
+        } catch (updateError: any) {
+            if (updateError.code !== 'P2025') {
+                console.error(`❌ Erro ao salvar nota da redação ${redacaoId}:`, updateError.message);
+            }
+        }
+    }).catch(analyzeError => {
+        console.error(`❌ Erro na análise automática da redação ${redacaoId}:`, analyzeError.message);
+    }).finally(() => {
+        analiseJobs.delete(redacaoId);
+    });
+};
 
+// --- CONTROLLERS ---
+
+// POST /api/redacoes (Aluno envia para si)
+// POST /api/alunos/:alunoId/redacoes (Professor envia para aluno)
 export const criarRedacao = async (req: Request, res: Response) => {
     try {
-        const { titulo } = req.body;
+        const { titulo, turmaId } = req.body;
         const file = req.file as Express.Multer.File | undefined;
         const imagemUrl = file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : req.body.imagemUrl;
-        const usuarioId = req.userId;
 
-        if (!usuarioId) return res.status(401).json({ erro: "Usuário não autenticado." });
+        const usuarioLogadoId = req.userId; // Quem está fazendo o upload
+        const usuarioLogadoRole = req.userRole; // Papel de quem está fazendo o upload
+        const alunoIdParam = req.params.alunoId || null; // Aluno alvo (se professor)
+
+        if (!usuarioLogadoId || !usuarioLogadoRole) return res.status(401).json({ erro: "Usuário não autenticado corretamente." });
         if (!titulo || !imagemUrl) return res.status(400).json({ erro: "Título e imagem são obrigatórios." });
+
+        // Validação de Permissão
+        if (alunoIdParam && usuarioLogadoRole !== UserRole.PROFESSOR) {
+            return res.status(403).json({ erro: "Apenas professores podem enviar redações para alunos específicos." });
+        }
+
+        const alunoDestinoId = alunoIdParam || (usuarioLogadoRole === UserRole.ALUNO ? usuarioLogadoId : null);
 
         console.log("🔍 Iniciando extração de texto com OCR...");
         const ocrResult = await extrairTextoDaImagem(imagemUrl);
-        
+
         if (!ocrResult.text || ocrResult.text.trim().length < 50) {
-            return res.status(400).json({
-                erro: "Não foi possível extrair texto suficiente da imagem.",
-                ocrResult,
-            });
+            return res.status(400).json({ erro: "Não foi possível extrair texto suficiente.", ocrResult });
         }
 
-        console.log("🤖 Iniciando correção automática com GPT...");
+        // Mantendo a etapa de correção conforme seu código original
+        console.log("🤖 Iniciando correção automática com IA...");
         const textoCorrigido = await corrigirTextoOCR(ocrResult.text);
 
         console.log("💾 Salvando redação no banco de dados...");
-        const redacao = await prisma.redacao.create({
-            data: {
-                titulo,
-                imagemUrl,
-                textoExtraido: textoCorrigido, // Salva o texto já corrigido
-                usuarioId
-            },
-        });
+        const redacaoData: any = {
+            titulo,
+            imagemUrl,
+            textoExtraido: textoCorrigido, // Salva o texto corrigido
+            usuarioId: usuarioLogadoId,    // Quem fez o upload
+            alunoId: alunoDestinoId,     // A quem pertence
+        };
+        if (turmaId && usuarioLogadoRole === UserRole.PROFESSOR) {
+            redacaoData.turmaId = turmaId;
+        }
 
-        console.log(`✅ Redação ${redacao.id} criada com sucesso!`);
+        const redacao = await prisma.redacao.create({ data: redacaoData });
+        console.log(`✅ Redação ${redacao.id} criada! Pertence ao aluno ${alunoDestinoId || 'próprio usuário'}.`);
 
-        // Iniciar análise automática em background
-        console.log("⚡ Iniciando análise ENEM automática...");
-        setTimeout(async () => {
-            try {
-                const analiseEnem = await analisarEnem(textoCorrigido);
-                await prisma.redacao.update({
-                    where: { id: redacao.id },
-                    data: { 
-                        notaGerada: analiseEnem.notaFinal1000,
-                        notaFinal: analiseEnem.notaFinal1000 
-                    }
-                });
-                console.log(`📊 Análise da redação ${redacao.id} concluída: ${analiseEnem.notaFinal1000}/1000`);
-            } catch (analyzeError) {
-                console.error(`❌ Erro na análise automática da redação ${redacao.id}:`, analyzeError);
-            }
-        }, 1000);
+        // Iniciar análise em background com o texto corrigido
+        iniciarAnaliseBackground(redacao.id, textoCorrigido);
 
-        return res.status(201).json({ 
-            ...redacao, 
+        // Retorna o resultado do OCR e o texto corrigido
+        return res.status(201).json({
+            ...redacao,
             ocr: {
                 ...ocrResult,
-                text: textoCorrigido,
-                originalText: ocrResult.text,
+                text: textoCorrigido, // Retorna o texto corrigido
+                originalText: ocrResult.text, // Mantém o original para referência
                 corrected: true
             }
         });
 
     } catch (error: any) {
         console.error("❌ Erro ao criar redação:", error);
-        if (error.message.includes('PayloadTooLargeError')) {
-            return res.status(413).json({ erro: "Imagem muito grande. Limite de 10MB." });
+        if (error.code === 'P2003' && error.meta?.field_name?.includes('turmaId')) {
+            return res.status(400).json({ erro: "Turma não encontrada." });
+        }
+        if (error.code === 'P2003' && error.meta?.field_name?.includes('alunoId')) {
+            return res.status(400).json({ erro: "Aluno não encontrado." });
         }
         return res.status(500).json({ erro: "Erro interno do servidor.", detalhes: error.message });
     }
 };
 
+// GET /api/redacoes/:id/analise-enem
 export const obterAnaliseEnem = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const redacao = await prisma.redacao.findFirst({ where: { id, usuarioId: req.userId } });
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        const redacao = await prisma.redacao.findUnique({
+            where: { id },
+            include: { turma: { select: { professorId: true } } }
+        });
+
         if (!redacao) return res.status(404).json({ erro: 'Redação não encontrada.' });
+
+        // VERIFICAÇÃO DE PERMISSÃO
+        const isAlunoDono = userRole === UserRole.ALUNO && redacao.alunoId === userId;
+        const isProfessorDaTurma = userRole === UserRole.PROFESSOR && redacao.turma?.professorId === userId;
+        const isProfessorQueEnviou = userRole === UserRole.PROFESSOR && redacao.usuarioId === userId;
+
+        if (!isAlunoDono && !isProfessorDaTurma && !isProfessorQueEnviou) {
+            return res.status(403).json({ erro: 'Você não tem permissão para ver esta análise.' });
+        }
 
         const cacheEntry = analiseCache.get(id);
         if (cacheEntry) {
@@ -99,46 +144,29 @@ export const obterAnaliseEnem = async (req: Request, res: Response) => {
             return res.status(202).json({ status: 'running', message: 'Análise em processamento...' });
         }
 
-        const jobPromise = (async (): Promise<AnaliseENEM> => {
-            // Lógica simplificada e correta: usa o texto direto do OCR
-            const textoParaAnalise = redacao.textoExtraido || '';
-            const analiseEnem = await analisarEnem(textoParaAnalise);
-
-            try {
-                const notaFinal = analiseEnem.notaFinal1000;
-                if (notaFinal >= 0) {
-                    await prisma.redacao.update({ where: { id: redacao.id }, data: { notaGerada: notaFinal } });
-                }
-            } catch (error: any) { /* ... */ }
-
-            analiseCache.set(id, { data: analiseEnem, cachedAt: Date.now() });
-            return analiseEnem;
-        })();
-
-        analiseJobs.set(id, { promise: jobPromise, startedAt: Date.now() });
-        jobPromise.catch(err => {
-            console.error(`[ERRO NO JOB] A análise para a redação ${id} falhou:`, err.message);
-        }).finally(() => {
-            analiseJobs.delete(id);
-        });
+        // Se não está no cache nem rodando, inicia o job
+        console.warn(`⚠️ Análise para redação ${id} não encontrada. Iniciando job...`);
+        iniciarAnaliseBackground(redacao.id, redacao.textoExtraido || '');
 
         return res.status(202).json({ status: 'running', message: 'Análise iniciada...' });
+
     } catch (error: any) {
         console.error(`Erro na rota obterAnaliseEnem para redação ${req.params.id}:`, error);
-        return res.status(500).json({ erro: 'Erro ao processar análise ENEM.', detalhes: error.message });
+        return res.status(500).json({ erro: 'Erro ao obter análise ENEM.', detalhes: error.message });
     }
 };
 
+// POST /api/redacoes/reanalisar
 export const reanalisarTexto = async (req: Request, res: Response) => {
     try {
         const { texto } = req.body;
         if (!texto || texto.trim().length < 50) return res.status(400).json({ erro: 'Texto inválido.' });
 
-        // Esta rota continua usando a formatação, e agora funciona
+        // Mantendo a formatação nesta rota, conforme seu código original
         const textoFormatado = (await formatarTextoComLLM(texto)).textoFormatado;
-        const analise = await analisarEnem(textoFormatado);
+        const analise = await analisarEnem(textoFormatado); // Usa a análise de alta precisão
 
-        // Retornando no formato correto que o frontend espera
+        // Retornando no formato que o frontend espera para esta rota
         return res.json({ textoAnalisado: textoFormatado, analise: analise });
     } catch (e: any) {
         console.error('Erro ao reanalisar texto:', e);
@@ -146,11 +174,29 @@ export const reanalisarTexto = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/redacoes
 export const listarRedacoes = async (req: Request, res: Response) => {
     try {
+        const userId = req.userId;
+        const userRole = req.userRole;
+        let whereClause: any = {}; // Usar 'any' temporariamente para flexibilidade
+
+        if (userRole === UserRole.ALUNO) {
+            whereClause = { alunoId: userId };
+        } else if (userRole === UserRole.PROFESSOR) {
+            // Professor vê todas as redações associadas às suas turmas
+            whereClause = { turma: { professorId: userId } };
+        } else {
+            return res.status(403).json({ erro: "Papel de usuário desconhecido." });
+        }
+
         const redacoes = await prisma.redacao.findMany({
-            where: { usuarioId: req.userId },
-            orderBy: { criadoEm: 'desc' }, // Requer o campo 'createdAt' no schema.prisma
+            where: whereClause,
+            orderBy: { criadoEm: 'desc' },
+            include: { // Incluir dados do aluno para exibição no frontend do professor
+                usuario: { select: { nome: true } }, // Quem enviou
+                aluno: { select: { nome: true, id: true } } // A quem pertence
+            }
         });
         return res.json(redacoes);
     } catch (error) {
@@ -159,82 +205,77 @@ export const listarRedacoes = async (req: Request, res: Response) => {
     }
 };
 
+// GET /api/redacoes/:id
 export const obterRedacao = async (req: Request, res: Response) => {
     try {
-        const redacao = await prisma.redacao.findFirst({
-            where: { id: req.params.id, usuarioId: req.userId },
+        const { id } = req.params;
+        const userId = req.userId;
+        const userRole = req.userRole;
+
+        const redacao = await prisma.redacao.findUnique({
+            where: { id },
+            include: { turma: { select: { professorId: true } } }
         });
-        return redacao ? res.json(redacao) : res.status(404).json({ erro: "Redação não encontrada." });
+
+        if (!redacao) return res.status(404).json({ erro: "Redação não encontrada." });
+
+        // VERIFICAÇÃO DE PERMISSÃO
+        const isAlunoDono = userRole === UserRole.ALUNO && redacao.alunoId === userId;
+        const isProfessorDaTurma = userRole === UserRole.PROFESSOR && redacao.turma?.professorId === userId;
+        const isProfessorQueEnviou = userRole === UserRole.PROFESSOR && redacao.usuarioId === userId;
+
+        if (!isAlunoDono && !isProfessorDaTurma && !isProfessorQueEnviou) {
+            return res.status(403).json({ erro: 'Você não tem permissão.' });
+        }
+
+        return res.json(redacao);
     } catch (error) {
         return res.status(500).json({ erro: "Ocorreu um erro no servidor." });
     }
 };
 
+// PUT /api/redacoes/:id
 export const atualizarRedacao = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        const { textoExtraido, titulo } = req.body;
+        // Permite atualizar título ou nota final (pelo professor)
+        const { titulo, notaFinal, textoExtraido } = req.body;
+        const userId = req.userId;
+        const userRole = req.userRole;
 
-        console.log(`📝 Atualizando redação ${id}...`);
-
-        const redacao = await prisma.redacao.findFirst({
-            where: { id, usuarioId: req.userId },
+        const redacao = await prisma.redacao.findUnique({
+            where: { id },
+            include: { turma: { select: { professorId: true } } }
         });
-        
-        if (!redacao) {
-            return res.status(404).json({ erro: "Redação não encontrada." });
-        }
+        if (!redacao) return res.status(404).json({ erro: "Redação não encontrada." });
 
-        // Se o texto foi atualizado, limpar cache e iniciar nova análise
-        if (textoExtraido !== undefined && textoExtraido !== redacao.textoExtraido) {
-            console.log(`✏️ Texto da redação ${id} foi editado. Limpando análise antiga...`);
-            
-            // Limpar cache e jobs de análise antiga
+        const canEditTitle = redacao.usuarioId === userId || (userRole === UserRole.ALUNO && redacao.alunoId === userId);
+        const canEditGrade = userRole === UserRole.PROFESSOR && redacao.turma?.professorId === userId;
+        const canEditText = redacao.usuarioId === userId || (userRole === UserRole.ALUNO && redacao.alunoId === userId); // Permite editar o texto OCR se for o dono
+
+        const dataToUpdate: any = {};
+        if (titulo !== undefined && canEditTitle) dataToUpdate.titulo = titulo;
+        if (notaFinal !== undefined && canEditGrade) dataToUpdate.notaFinal = Number(notaFinal);
+        if (textoExtraido !== undefined && canEditText) {
+            dataToUpdate.textoExtraido = textoExtraido;
+            // Se o texto mudou, reseta a nota gerada e reinicia a análise
+            dataToUpdate.notaGerada = null;
+            dataToUpdate.notaFinal = null;
             analiseCache.delete(id);
             analiseJobs.delete(id);
-
-            // Atualizar com o novo texto e resetar notas
-            const redacaoAtualizada = await prisma.redacao.update({
-                where: { id },
-                data: {
-                    textoExtraido,
-                    titulo: titulo || redacao.titulo,
-                    notaGerada: null,
-                    notaFinal: null
-                }
-            });
-
-            // Iniciar nova análise automática em background
-            console.log("⚡ Iniciando análise ENEM do texto editado...");
-            setTimeout(async () => {
-                try {
-                    const analiseEnem = await analisarEnem(textoExtraido);
-                    await prisma.redacao.update({
-                        where: { id },
-                        data: { 
-                            notaGerada: analiseEnem.notaFinal1000,
-                            notaFinal: analiseEnem.notaFinal1000 
-                        }
-                    });
-                    
-                    // Adicionar ao cache
-                    analiseCache.set(id, { data: analiseEnem, cachedAt: Date.now() });
-                    
-                    console.log(`✅ Análise do texto editado concluída: ${analiseEnem.notaFinal1000}/1000`);
-                } catch (analyzeError) {
-                    console.error(`❌ Erro na análise do texto editado:`, analyzeError);
-                }
-            }, 1000);
-
-            return res.json(redacaoAtualizada);
+            // Inicia nova análise em background após salvar
+            setTimeout(() => iniciarAnaliseBackground(id, textoExtraido), 500);
         }
 
-        // Se apenas o título foi atualizado
+        if (Object.keys(dataToUpdate).length === 0) {
+            return res.status(403).json({ erro: "Nenhuma alteração permitida ou nenhum dado fornecido." });
+        }
+
         const redacaoAtualizada = await prisma.redacao.update({
             where: { id },
-            data: { titulo: titulo || redacao.titulo }
+            data: dataToUpdate
         });
-
+        console.log(`✅ Redação ${id} atualizada.`);
         return res.json(redacaoAtualizada);
     } catch (error) {
         console.error("❌ Erro ao atualizar redação:", error);
@@ -242,20 +283,91 @@ export const atualizarRedacao = async (req: Request, res: Response) => {
     }
 };
 
+// DELETE /api/redacoes/:id
 export const excluirRedacao = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        console.warn(`[LOG-SISTEMA] ATENÇÃO: Recebida requisição para EXCLUIR a redação ${id}.`);
+        const userId = req.userId;
+        const userRole = req.userRole;
 
-        const redacao = await prisma.redacao.findFirst({ where: { id, usuarioId: req.userId } });
-        if (!redacao) return res.status(404).json({ erro: "Redação não encontrada para exclusão." });
+        const redacao = await prisma.redacao.findUnique({
+            where: { id },
+            include: { turma: { select: { professorId: true } } }
+        });
+        if (!redacao) return res.status(404).json({ erro: "Redação não encontrada." });
+
+        const isAlunoDono = userRole === UserRole.ALUNO && redacao.alunoId === userId;
+        const isProfessorDaTurma = userRole === UserRole.PROFESSOR && redacao.turma?.professorId === userId;
+
+        if (!isAlunoDono && !isProfessorDaTurma) {
+            return res.status(403).json({ erro: "Você não tem permissão para excluir." });
+        }
 
         await prisma.redacao.delete({ where: { id } });
         analiseCache.delete(id);
         analiseJobs.delete(id);
-
+        console.log(`🗑️ Redação ${id} excluída.`);
         return res.status(200).json({ mensagem: "Redação excluída com sucesso." });
     } catch (error) {
-        return res.status(500).json({ erro: "Ocorreu um erro ao excluir a redação." });
+        console.error("❌ Erro ao excluir redação:", error);
+        return res.status(500).json({ erro: "Ocorreu um erro ao excluir." });
+    }
+};
+
+// --- NOVAS ROTAS PARA PROFESSOR ---
+
+// GET /api/turmas/:id/redacoes
+export const listarRedacoesDaTurma = async (req: Request, res: Response) => {
+    try {
+        const { id: turmaId } = req.params;
+        const professorId = req.userId;
+
+        const turma = await prisma.turma.findFirst({ where: { id: turmaId, professorId } });
+        if (!turma) return res.status(404).json({ erro: "Turma não encontrada ou sem permissão." });
+
+        const redacoes = await prisma.redacao.findMany({
+            where: { turmaId },
+            orderBy: { criadoEm: 'desc' },
+            include: { aluno: { select: { nome: true, id: true } } }
+        });
+        return res.json(redacoes);
+    } catch (error) {
+        console.error(`Erro ao listar redações da turma ${req.params.id}:`, error);
+        return res.status(500).json({ erro: "Ocorreu um erro no servidor." });
+    }
+};
+
+// GET /api/turmas/:id/estatisticas
+export const calcularEstatisticasTurma = async (req: Request, res: Response) => {
+    try {
+        const { id: turmaId } = req.params;
+        const professorId = req.userId;
+
+        const turma = await prisma.turma.findFirst({ where: { id: turmaId, professorId } });
+        if (!turma) return res.status(404).json({ erro: "Turma não encontrada ou sem permissão." });
+
+        const stats = await prisma.redacao.aggregate({
+            _avg: { notaFinal: true },
+            _count: { id: true },
+            where: { turmaId, notaFinal: { not: null } }
+        });
+
+        const ultimasNotas = await prisma.redacao.findMany({
+            where: { turmaId, notaFinal: { not: null } },
+            orderBy: { criadoEm: 'desc' },
+            take: 10, select: { notaFinal: true }
+        });
+        const mediaRecentes = ultimasNotas.length > 0
+            ? ultimasNotas.reduce((sum, r) => sum + (r.notaFinal || 0), 0) / ultimasNotas.length
+            : null;
+
+        return res.json({
+            mediaGeral: stats._avg.notaFinal,
+            totalRedacoesComNota: stats._count.id,
+            mediaUltimas10: mediaRecentes
+        });
+    } catch (error) {
+        console.error(`Erro ao calcular estatísticas da turma ${req.params.id}:`, error);
+        return res.status(500).json({ erro: "Ocorreu um erro no servidor." });
     }
 };
