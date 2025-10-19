@@ -31,7 +31,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                     email: formData.email,
                     senha: formData.senha,
                 });
-                // O login já salva o token e o usuário no api.ts
+                // Salva o token e os dados do usuário no localStorage
+                authService.setToken(response.token);
+                authService.setUser(response.user);
                 onLogin();
                 navigate('/dashboard');
             } else {
