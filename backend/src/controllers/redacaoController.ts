@@ -76,7 +76,7 @@ export const criarRedacao = async (req: Request, res: Response) => {
         const redacaoData: any = {
             titulo,
             imagemUrl,
-            textoExtraido: textoCorrigido, // Salva o texto corrigido
+            textoExtraido: ocrResult.text, // Salva o texto bruto extraído do OCR
             usuarioId: usuarioLogadoId,    // Quem fez o upload
             alunoId: alunoDestinoId,     // A quem pertence
         };
@@ -87,7 +87,7 @@ export const criarRedacao = async (req: Request, res: Response) => {
         const redacao = await prisma.redacao.create({ data: redacaoData });
         console.log(`✅ Redação ${redacao.id} criada! Pertence ao aluno ${alunoDestinoId || 'próprio usuário'}.`);
 
-        // Iniciar análise em background com o texto corrigido
+        // Iniciar análise em background com o texto corrigido (que foi processado pela IA)
         iniciarAnaliseBackground(redacao.id, textoCorrigido);
 
         // Retorna o resultado do OCR e o texto corrigido
