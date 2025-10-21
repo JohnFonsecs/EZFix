@@ -1,7 +1,3 @@
-/**
- * Serviço de análise de texto para feedback de redações
- */
-
 export interface AnaliseTexto {
   pontuacao: number;
   pontosPositivos: string[];

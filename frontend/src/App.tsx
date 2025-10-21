@@ -1,105 +1,145 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import RedacoesPage from './pages/RedacoesPage';
 import ProfilePage from './pages/ProfilePage';
-import { authService } from './services/api';
+import { AuthProvider, useAuth } from './components/AuthContext'; // Importa o contexto
+import { authService } from './services/api'; // Importa authService
 import './index.css';
 
-const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true);
+// ADICIONADO: Placeholders para páginas de Professor (criar depois)
+// import TurmasPage from './pages/professor/TurmasPage';
+// import TurmaDetailPage from './pages/professor/TurmaDetailPage';
 
-  useEffect(() => {
-    // Verificar se há token salvo e se ainda é válido
-    const token = authService.getToken();
-    if (token) {
-      // Verificar se o token ainda é válido fazendo uma requisição simples
-      // Se for inválido, o interceptor vai limpar automaticamente
-      setIsAuthenticated(true);
-    } else {
-      // Garantir que não há dados residuais
-      authService.logout();
-      setIsAuthenticated(false);
+// Componente para rotas protegidas
+const RotaProtegida: React.FC<{ children: JSX.Element }> = ({ children }) => {
+    const { autenticado, carregando } = useAuth();
+
+    if (carregando) {
+        // Mostra um indicador de carregamento enquanto verifica o status de auth
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Verificando autenticação...</p>
+                </div>
+            </div>
+        );
     }
-    setLoading(false);
-  }, []);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
+    return autenticado ? children : <Navigate to="/login" replace />;
+};
 
-  const handleLogout = () => {
-    authService.logout(); // Limpar token e dados do usuário
-    setIsAuthenticated(false);
-  };
+// Componente para rotas específicas de Professor
+const RotaProfessor: React.FC<{ children: JSX.Element }> = ({ children }) => {
+    const { usuarioAtual } = useAuth();
+    // Assumindo que RotaProtegida já cuidou da autenticação e do carregamento
+    if (usuarioAtual?.role === 'PROFESSOR') {
+        return children;
+    } else {
+        // Redireciona não-professores (ou mostra uma página de acesso negado)
+        return <Navigate to="/dashboard" replace />;
+    }
+}
 
-  if (loading) {
+
+// Componente principal que define as rotas
+const AppRoutes: React.FC = () => {
+    const { login, logout } = useAuth(); // Obtém login/logout do contexto
+
+    // Callback passado para LoginPage para atualizar o contexto após login bem-sucedido
+    const handleLoginSucesso = () => {
+        const usuario = authService.getUser(); // Re-busca dados do usuário após login defini-los
+        if (usuario) {
+            login(usuario); // Atualiza o estado do AuthContext
+        }
+    };
+
+
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Router>
-      <div className="App">
         <Routes>
-          <Route 
-            path="/login" 
-            element={
-              <LoginPage onLogin={handleLogin} />
-            } 
-          />
-          <Route 
-            path="/dashboard" 
-            element={
-              isAuthenticated ? (
-                <Dashboard onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            } 
-          />
-          <Route 
-            path="/redacoes" 
-            element={
-              isAuthenticated ? (
-                <RedacoesPage onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            } 
-          />
-          <Route 
-            path="/perfil" 
-            element={
-              isAuthenticated ? (
-                <ProfilePage onLogout={handleLogout} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            } 
-          />
-          <Route 
-            path="/" 
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            } 
-          />
+            <Route
+                path="/login"
+                element={<LoginPage onLogin={handleLoginSucesso} />} // Usa o callback
+            />
+
+            {/* Rotas Protegidas */}
+            <Route
+                path="/dashboard"
+                element={
+                    <RotaProtegida>
+                        <Dashboard onLogout={logout} />
+                    </RotaProtegida>
+                }
+            />
+            <Route
+                path="/redacoes"
+                element={
+                    <RotaProtegida>
+                        <RedacoesPage onLogout={logout} />
+                    </RotaProtegida>
+                }
+            />
+            <Route
+                path="/perfil"
+                element={
+                    <RotaProtegida>
+                        <ProfilePage onLogout={logout} />
+                    </RotaProtegida>
+                }
+            />
+
+            {/* ADICIONADO: Rotas Específicas do Professor */}
+            {/* Exemplo:
+            <Route
+                path="/turmas" // Rota para listar turmas do professor
+                element={
+                    <RotaProtegida>
+                        <RotaProfessor>
+                            <TurmasPage onLogout={logout} />
+                        </RotaProfessor>
+                    </RotaProtegida>
+                }
+            />
+            <Route
+                path="/turmas/:id" // Rota para detalhes de uma turma específica
+                element={
+                    <RotaProtegida>
+                        <RotaProfessor>
+                             <TurmaDetailPage onLogout={logout} />
+                        </RotaProfessor>
+                    </RotaProtegida>
+                }
+            />
+            */}
+
+
+            {/* Rota Raiz - Redireciona com base na autenticação */}
+            <Route
+                path="/"
+                element={
+                    <Navigate to="/dashboard" replace /> // Tenta sempre o dashboard primeiro, RotaProtegida cuida do redirecionamento se necessário
+                }
+            />
+
+            {/* Rota Catch-all (opcional) */}
+            <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </div>
-    </Router>
-  );
+    );
+}
+
+// Componente App que envolve tudo com o Provider
+const App: React.FC = () => {
+    return (
+        <Router>
+            <AuthProvider> {/* Envolve as rotas com o AuthProvider */}
+                <div className="App">
+                    <AppRoutes /> {/* Renderiza as rotas */}
+                </div>
+            </AuthProvider>
+        </Router>
+    );
 };
 
 export default App;

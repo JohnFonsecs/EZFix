@@ -3,6 +3,7 @@ export interface User {
   nome: string;
   email: string;
   criadoEm: string;
+  role?: 'ALUNO' | 'PROFESSOR';
 }
 
 export interface Redacao {
@@ -17,6 +18,9 @@ export interface Redacao {
   sugestoes?: string;
   criadoEm: string;
   usuarioId: string;
+  alunoId?: string;
+  turmaId?: string;
+  aluno?: { nome: string; email: string };
   avaliacoes: Avaliacao[];
 }
 
@@ -28,6 +32,26 @@ export interface Avaliacao {
   redacaoId: string;
 }
 
+export interface Turma {
+  id: string;
+  nome: string;
+  professorId: string;
+  criadoEm: string;
+  atualizadoEm: string;
+  _count?: { // Opcional, se o backend incluir contagem
+    matriculas: number;
+  };
+}
+
+export interface Matricula {
+  id: string;
+  alunoId: string;
+  turmaId: string;
+  criadoEm: string;
+  aluno?: User; // Opcional, para joins
+  turma?: Turma; // Opcional, para joins
+}
+
 export interface LoginRequest {
   email: string;
   senha: string;
@@ -37,6 +61,7 @@ export interface RegisterRequest {
   nome: string;
   email: string;
   senha: string;
+  role?: 'ALUNO' | 'PROFESSOR';
 }
 
 export interface AuthResponse {
@@ -45,8 +70,10 @@ export interface AuthResponse {
 }
 
 export interface CreateRedacaoRequest {
-  titulo: string;
-  imagemUrl: string;
+    titulo: string;
+    imagemUrl?: string;
+    file?: File;
+    turmaId?: string;
 }
 
 export interface CreateAvaliacaoRequest {

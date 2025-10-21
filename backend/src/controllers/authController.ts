@@ -8,9 +8,13 @@ const SECRET = process.env.JWT_SECRET || "secreto";
 
 export const register = async (req: Request, res: Response) => {
   try {
-    const { nome, email, senha } = req.body;
+      const { nome, email, senha, role } = req.body;
 
     console.log('📝 Tentativa de registro:', { nome, email: email ? '[REDACTED]' : undefined });
+
+    if (role && role !== 'ALUNO' && role !== 'PROFESSOR') {
+        return res.status(400).json({ erro: "Role inválido. Deve ser 'ALUNO' ou 'PROFESSOR'." });
+    }
 
     const existente = await prisma.user.findUnique({ where: { email } });
     if (existente) {
@@ -21,11 +25,11 @@ export const register = async (req: Request, res: Response) => {
     const senhaHash = await bcrypt.hash(senha, 10);
 
     const user = await prisma.user.create({
-      data: { nome, email, senhaHash },
+    data: { nome, email, senhaHash, role: role || 'ALUNO' },
     });
 
     console.log('✅ Usuário criado com sucesso');
-    return res.json({ id: user.id, nome: user.nome, email: user.email });
+    return res.json({ id: user.id, nome: user.nome, email: user.email, role: user.role });
   } catch (error) {
     console.error('💥 Erro no registro:', error);
     return res.status(500).json({ erro: "Ocorreu um erro no servidor." });
@@ -51,13 +55,14 @@ export const login = async (req: Request, res: Response) => {
     }
 
     console.log('✅ Login bem-sucedido');
-    const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1d" });
+    const token = jwt.sign({ userId: user.id, role: user.role }, SECRET, { expiresIn: "1d" });
     return res.json({ 
       token,
       user: {
         id: user.id,
         nome: user.nome,
         email: user.email,
+        role: user.role,
         criadoEm: user.criadoEm
       }
     });

@@ -15,17 +15,38 @@ const ANALISE_TTL_MS = 10 * 60 * 1000;
 
 export const criarRedacao = async (req: Request, res: Response) => {
     try {
-        const { titulo } = req.body;
+        const { titulo, turmaId } = req.body;
         const file = req.file as Express.Multer.File | undefined;
         const imagemUrl = file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : req.body.imagemUrl;
         const usuarioId = req.userId;
 
+        const userRole = req.userRole;
+
         if (!usuarioId) return res.status(401).json({ erro: "Usuário não autenticado." });
         if (!titulo || !imagemUrl) return res.status(400).json({ erro: "Título e imagem são obrigatórios." });
 
+        const data: any = {
+            titulo,
+            imagemUrl,
+            usuarioId: usuarioId
+        };
+
+        if (userRole === 'ALUNO' && turmaId) {
+            console.log(`Aluno ${usuarioId} tentando enviar para turma ${turmaId}`);
+            const matricula = await prisma.matricula.findFirst({
+                where: { alunoId: usuarioId, turmaId: turmaId }
+            });
+
+            if (!matricula) {
+                console.warn(`Acesso negado: Aluno ${usuarioId} não matriculado na turma ${turmaId}.`);
+                return res.status(403).json({ erro: "Você não está matriculado nesta turma." });
+            }
+            data.alunoId = usuarioId;
+            data.turmaId = turmaId;
+        }
         console.log("🔍 Iniciando extração de texto com OCR...");
         const ocrResult = await extrairTextoDaImagem(imagemUrl);
-        
+
         if (!ocrResult.text || ocrResult.text.trim().length < 50) {
             return res.status(400).json({
                 erro: "Não foi possível extrair texto suficiente da imagem.",
@@ -36,28 +57,23 @@ export const criarRedacao = async (req: Request, res: Response) => {
         console.log("🤖 Iniciando correção automática com GPT...");
         const textoCorrigido = await corrigirTextoOCR(ocrResult.text);
 
+        data.textoExtraido = textoCorrigido;
+
         console.log("💾 Salvando redação no banco de dados...");
         const redacao = await prisma.redacao.create({
-            data: {
-                titulo,
-                imagemUrl,
-                textoExtraido: textoCorrigido, // Salva o texto já corrigido
-                usuarioId
-            },
+            data: data,
         });
 
         console.log(`✅ Redação ${redacao.id} criada com sucesso!`);
-
-        // Iniciar análise automática em background
         console.log("⚡ Iniciando análise ENEM automática...");
         setTimeout(async () => {
             try {
                 const analiseEnem = await analisarEnem(textoCorrigido);
                 await prisma.redacao.update({
                     where: { id: redacao.id },
-                    data: { 
+                    data: {
                         notaGerada: analiseEnem.notaFinal1000,
-                        notaFinal: analiseEnem.notaFinal1000 
+                        notaFinal: analiseEnem.notaFinal1000
                     }
                 });
                 console.log(`📊 Análise da redação ${redacao.id} concluída: ${analiseEnem.notaFinal1000}/1000`);
@@ -66,8 +82,8 @@ export const criarRedacao = async (req: Request, res: Response) => {
             }
         }, 1000);
 
-        return res.status(201).json({ 
-            ...redacao, 
+        return res.status(201).json({
+            ...redacao,
             ocr: {
                 ...ocrResult,
                 text: textoCorrigido,

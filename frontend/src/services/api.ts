@@ -7,7 +7,9 @@ import {
   Redacao, 
   CreateRedacaoRequest,
   Avaliacao,
-  CreateAvaliacaoRequest 
+  CreateAvaliacaoRequest,
+  Turma,
+  Matricula
 } from '../types';
 
 const API_BASE_URL = 'http://localhost:3000';
@@ -37,9 +39,14 @@ export const authService = {
   },
 
   register: async (data: RegisterRequest): Promise<User> => {
-    const response = await api.post('/auth/register', data);
-    return response.data;
-  },
+    // Envia o 'role' se ele for 'PROFESSOR'
+    const payload: RegisterRequest = { ...data };
+    if (data.role !== 'PROFESSOR') {
+        delete payload.role; // Não envia 'ALUNO', backend assume como padrão
+    }
+    const response = await api.post('/auth/register', payload);
+    return response.data;
+  },
 
   changePassword: async (senhaAtual: string, novaSenha: string): Promise<{ mensagem: string }> => {
     const response = await api.put('/auth/change-password', { senhaAtual, novaSenha });
@@ -155,6 +162,37 @@ export const avaliacaoService = {
 
   delete: async (id: string): Promise<void> => {
     await api.delete(`/avaliacoes/${id}`);
+  },
+};
+
+// ADICIONADO: Turma services
+export const turmaService = {
+// Para Professores  
+  listarTurmasProfessor: async (): Promise<Turma[]> => {
+    const response = await api.get('/turmas/professor');
+    return response.data;
+  },
+  criarTurma: async (nome: string): Promise<Turma> => {
+    const response = await api.post('/turmas', { nome });
+    return response.data;
+  },
+  adicionarAluno: async (turmaId: string, emailAluno: string): Promise<Matricula> => {
+    const response = await api.post('/turmas/matricular', { turmaId, emailAluno });
+    return response.data;
+  },
+  listarRedacoesDaTurma: async (turmaId: string): Promise<Redacao[]> => {
+    const response = await api.get(`/turmas/${turmaId}/redacoes`);
+    return response.data;
+  },
+  listarAlunosDaTurma: async (turmaId: string): Promise<User[]> => {
+    const response = await api.get(`/turmas/${turmaId}/alunos`);
+    return response.data;
+  },
+
+  // Para Alunos
+  listarTurmasAluno: async (): Promise<Turma[]> => {
+    const response = await api.get('/turmas/aluno');
+    return response.data;
   },
 };
 

@@ -10,6 +10,7 @@ export const autenticar = (req: Request, res: Response, next: NextFunction) => {
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || "secreto") as any;
         req.userId = decoded.userId;
+        req.userRole = decoded.role;
         return next();
     } catch {
         return res.status(401).json({ erro: "Token inválido" });
