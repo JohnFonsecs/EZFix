@@ -4,6 +4,7 @@ import { redacaoService, authService } from '../services/api';
 import { Redacao } from '../types';
 import AnaliseRedacao from '../components/AnaliseRedacao';
 import VisualizarTexto from '../components/VisualizarTexto';
+import { useAuth } from '../components/AuthContext';
 
 interface RedacoesPageProps {
   onLogout: () => void;
@@ -11,6 +12,7 @@ interface RedacoesPageProps {
 
 const RedacoesPage: React.FC<RedacoesPageProps> = ({ onLogout }) => {
   const navigate = useNavigate();
+  const { usuarioAtual } = useAuth();
   const [redacoes, setRedacoes] = useState<Redacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -112,6 +114,9 @@ const RedacoesPage: React.FC<RedacoesPageProps> = ({ onLogout }) => {
           <nav className="hidden md:flex space-x-8">
             <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-gray-800 bg-transparent">Dashboard</button>
             <button onClick={() => navigate('/redacoes')} className="text-purple-600 font-semibold bg-transparent">Redações</button>
+            {usuarioAtual?.role === 'PROFESSOR' && (
+              <button onClick={() => navigate('/turmas')} className="text-gray-600 hover:text-gray-800 bg-transparent">Turmas</button>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">

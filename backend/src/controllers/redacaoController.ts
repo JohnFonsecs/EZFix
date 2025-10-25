@@ -15,7 +15,7 @@ const ANALISE_TTL_MS = 10 * 60 * 1000;
 
 export const criarRedacao = async (req: Request, res: Response) => {
     try {
-        const { titulo, turmaId } = req.body;
+        const { titulo, turmaId, alunoId } = req.body;
         const file = req.file as Express.Multer.File | undefined;
         const imagemUrl = file ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : req.body.imagemUrl;
         const usuarioId = req.userId;
@@ -31,6 +31,7 @@ export const criarRedacao = async (req: Request, res: Response) => {
             usuarioId: usuarioId
         };
 
+        // Se for ALUNO, associa a redação a ele mesmo
         if (userRole === 'ALUNO' && turmaId) {
             console.log(`Aluno ${usuarioId} tentando enviar para turma ${turmaId}`);
             const matricula = await prisma.matricula.findFirst({
@@ -43,6 +44,40 @@ export const criarRedacao = async (req: Request, res: Response) => {
             }
             data.alunoId = usuarioId;
             data.turmaId = turmaId;
+        }
+
+        // Se for PROFESSOR, pode associar a redação a um aluno de sua turma
+        if (userRole === 'PROFESSOR' && turmaId && alunoId) {
+            console.log(`Professor ${usuarioId} tentando enviar redação para aluno ${alunoId} na turma ${turmaId}`);
+            
+            // Verifica se a turma pertence ao professor
+            const turma = await prisma.turma.findFirst({
+                where: { id: turmaId, professorId: usuarioId }
+            });
+
+            if (!turma) {
+                console.warn(`Acesso negado: Turma ${turmaId} não pertence ao professor ${usuarioId}.`);
+                return res.status(403).json({ erro: "Você não é o professor desta turma." });
+            }
+
+            // Verifica se o aluno está matriculado na turma
+            const matricula = await prisma.matricula.findFirst({
+                where: { alunoId: alunoId, turmaId: turmaId }
+            });
+
+            if (!matricula) {
+                console.warn(`Acesso negado: Aluno ${alunoId} não está matriculado na turma ${turmaId}.`);
+                return res.status(403).json({ erro: "Este aluno não está matriculado nesta turma." });
+            }
+
+            data.alunoId = alunoId;
+            data.turmaId = turmaId;
+        }
+
+        // Se for PROFESSOR e selecionou turma mas não selecionou aluno, retorna erro
+        if (userRole === 'PROFESSOR' && turmaId && !alunoId) {
+            console.warn(`Professor ${usuarioId} tentou enviar redação para turma ${turmaId} sem selecionar aluno.`);
+            return res.status(400).json({ erro: "É obrigatório selecionar um aluno ao associar a uma turma." });
         }
         console.log("🔍 Iniciando extração de texto com OCR...");
         const ocrResult = await extrairTextoDaImagem(imagemUrl);

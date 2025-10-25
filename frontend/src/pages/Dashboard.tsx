@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { redacaoService, authService } from '../services/api';
-import { Redacao } from '../types';
+import { redacaoService, authService, turmaService } from '../services/api';
+import { Redacao, Turma, User } from '../types';
 import AnaliseRedacao from '../components/AnaliseRedacao';
 import VisualizarTexto from '../components/VisualizarTexto';
 import ProcessingModal from '../components/ProcessingModal';
 import GraficoEvolucao from '../components/GraficoEvolucao';
+import { useAuth } from '../components/AuthContext';
 
 interface DashboardProps {
     onLogout: () => void;
@@ -13,6 +14,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     const navigate = useNavigate();
+    const { usuarioAtual } = useAuth();
     const [redacoes, setRedacoes] = useState<Redacao[]>([]);
     const [enemScores, setEnemScores] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
@@ -22,7 +24,11 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     const [newRedacao, setNewRedacao] = useState({
         titulo: '',
         imagemUrl: '',
+        turmaId: '',
+        alunoId: '',
     });
+    const [turmasDisponiveis, setTurmasDisponiveis] = useState<Turma[]>([]);
+    const [alunosDisponiveis, setAlunosDisponiveis] = useState<User[]>([]);
     const [uploadLoading, setUploadLoading] = useState(false);
     const [processingOpen, setProcessingOpen] = useState(false);
     const [processingStep, setProcessingStep] = useState<string | undefined>(undefined);
@@ -78,7 +84,41 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
 
         // Primeira chamada mostra loading
         loadRedacoes(true);
-    }, [loadRedacoes]);
+        
+        // Carregar turmas se for aluno
+        if (usuarioAtual?.role === 'ALUNO' || usuarioAtual?.role === 'PROFESSOR') {
+            loadTurmas();
+        }
+    }, [loadRedacoes, usuarioAtual]);
+
+    const loadTurmas = async () => {
+        try {
+            if (usuarioAtual?.role === 'ALUNO') {
+                const turmas = await turmaService.listarTurmasAluno();
+                setTurmasDisponiveis(turmas);
+            } else if (usuarioAtual?.role === 'PROFESSOR') {
+                const turmas = await turmaService.listarTurmasProfessor();
+                setTurmasDisponiveis(turmas);
+            }
+        } catch (error) {
+            console.error('Erro ao carregar turmas:', error);
+        }
+    };
+
+    const loadAlunosDaTurma = async (turmaId: string) => {
+        if (!turmaId || usuarioAtual?.role !== 'PROFESSOR') {
+            setAlunosDisponiveis([]);
+            return;
+        }
+        
+        try {
+            const alunos = await turmaService.listarAlunosDaTurma(turmaId);
+            setAlunosDisponiveis(alunos);
+        } catch (error) {
+            console.error('Erro ao carregar alunos da turma:', error);
+            setAlunosDisponiveis([]);
+        }
+    };
 
     // Auto-refresh das estatísticas a cada 5 segundos
     useEffect(() => {
@@ -125,6 +165,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             if (selectedFile) {
                 const fd = new FormData();
                 fd.append('titulo', newRedacao.titulo);
+                if (newRedacao.turmaId) {
+                    fd.append('turmaId', newRedacao.turmaId);
+                }
+                if (newRedacao.alunoId && usuarioAtual?.role === 'PROFESSOR') {
+                    fd.append('alunoId', newRedacao.alunoId);
+                }
                 fd.append('file', selectedFile);
                 setProcessingStep('Extraindo texto da imagem');
                 setProcessingDetails('🔍 Aplicando OCR com Google Vision...');
@@ -133,7 +179,12 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 let imagemUrl = newRedacao.imagemUrl;
                 setProcessingStep('Extraindo texto da imagem');
                 setProcessingDetails('🔍 Aplicando OCR com Google Vision...');
-                created = await redacaoService.create({ titulo: newRedacao.titulo, imagemUrl: imagemUrl });
+                created = await redacaoService.create({ 
+                    titulo: newRedacao.titulo, 
+                    imagemUrl: imagemUrl,
+                    turmaId: newRedacao.turmaId || undefined,
+                    alunoId: (newRedacao.alunoId && usuarioAtual?.role === 'PROFESSOR') ? newRedacao.alunoId : undefined
+                });
             }
 
             // Passo 2: Mostrar que a correção foi aplicada
@@ -141,7 +192,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
             setProcessingDetails('🤖 Texto corrigido automaticamente com GPT e análise ENEM iniciada...');
             
             // Limpar formulário
-            setNewRedacao({ titulo: '', imagemUrl: '' });
+            setNewRedacao({ titulo: '', imagemUrl: '', turmaId: '', alunoId: '' });
             setSelectedFile(null);
             setShowUploadModal(false);
             loadRedacoes();
@@ -189,7 +240,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         }
 
         setSelectedFile(file);
-        setNewRedacao({ ...newRedacao, imagemUrl: '' });
+        setNewRedacao({ ...newRedacao, imagemUrl: '', turmaId: '', alunoId: '' });
         setShowUploadModal(true);
     };
 
@@ -282,6 +333,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                     <nav className="hidden md:flex space-x-4 lg:space-x-8">
                         <button onClick={() => navigate('/dashboard')} className="text-purple-600 font-semibold bg-transparent text-sm lg:text-base">Dashboard</button>
                         <button onClick={() => navigate('/redacoes')} className="text-gray-600 hover:text-gray-800 bg-transparent text-sm lg:text-base">Redações</button>
+                        {usuarioAtual?.role === 'PROFESSOR' && (
+                            <button onClick={() => navigate('/turmas')} className="text-gray-600 hover:text-gray-800 bg-transparent text-sm lg:text-base">Turmas</button>
+                        )}
                     </nav>
 
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -622,10 +676,102 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                 )}
                             </div>
 
+                            {/* Seletor de Turma - Apenas para Alunos */}
+                            {usuarioAtual?.role === 'ALUNO' && turmasDisponiveis.length > 0 && (
+                                <div>
+                                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                        Turma (opcional)
+                                    </label>
+                                    <select
+                                        value={newRedacao.turmaId}
+                                        onChange={(e) => setNewRedacao({ ...newRedacao, turmaId: e.target.value })}
+                                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                    >
+                                        <option value="">Sem turma</option>
+                                        {turmasDisponiveis.map((turma) => (
+                                            <option key={turma.id} value={turma.id}>
+                                                {turma.nome}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Selecione uma turma para vincular esta redação
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Seletor de Turma e Aluno - Apenas para Professores */}
+                            {usuarioAtual?.role === 'PROFESSOR' && turmasDisponiveis.length > 0 && (
+                                <>
+                                    <div>
+                                        <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                            Turma (opcional)
+                                        </label>
+                                        <select
+                                            value={newRedacao.turmaId}
+                                            onChange={(e) => {
+                                                const turmaId = e.target.value;
+                                                setNewRedacao({ ...newRedacao, turmaId, alunoId: '' });
+                                                loadAlunosDaTurma(turmaId);
+                                            }}
+                                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        >
+                                            <option value="">Sem turma</option>
+                                            {turmasDisponiveis.map((turma) => (
+                                                <option key={turma.id} value={turma.id}>
+                                                    {turma.nome}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Selecione uma turma para associar a redação
+                                        </p>
+                                    </div>
+
+                                    {/* Seletor de Aluno - Aparece apenas quando uma turma é selecionada */}
+                                    {newRedacao.turmaId && alunosDisponiveis.length > 0 && (
+                                        <div>
+                                            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+                                                Aluno <span className="text-red-600">*</span>
+                                            </label>
+                                            <select
+                                                value={newRedacao.alunoId}
+                                                onChange={(e) => setNewRedacao({ ...newRedacao, alunoId: e.target.value })}
+                                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                required
+                                            >
+                                                <option value="">Selecione um aluno</option>
+                                                {alunosDisponiveis.map((aluno) => (
+                                                    <option key={aluno.id} value={aluno.id}>
+                                                        {aluno.nome} ({aluno.email})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-xs text-red-600 mt-1">
+                                                * Obrigatório ao selecionar uma turma
+                                            </p>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Mensagem quando turma selecionada mas sem alunos */}
+                                    {newRedacao.turmaId && alunosDisponiveis.length === 0 && (
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                            <p className="text-yellow-800 text-xs">
+                                                ⚠️ Esta turma não possui alunos matriculados. Adicione alunos na página de Turmas primeiro.
+                                            </p>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
                             <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
                                 <button
                                     type="submit"
-                                    disabled={uploadLoading || (!selectedFile && !newRedacao.imagemUrl)}
+                                    disabled={
+                                        uploadLoading || 
+                                        (!selectedFile && !newRedacao.imagemUrl) ||
+                                        (usuarioAtual?.role === 'PROFESSOR' && !!newRedacao.turmaId && !newRedacao.alunoId)
+                                    }
                                     className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 >
                                     {uploadLoading ? 'Processando...' : 'Confirmar'}
@@ -634,7 +780,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                                     type="button"
                                     onClick={() => {
                                         setShowUploadModal(false);
-                                        setNewRedacao({ titulo: '', imagemUrl: '' });
+                                        setNewRedacao({ titulo: '', imagemUrl: '', turmaId: '', alunoId: '' });
                                         setSelectedFile(null);
                                     }}
                                     className="w-full sm:flex-1 px-4 py-2.5 sm:py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"

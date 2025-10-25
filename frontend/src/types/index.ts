@@ -74,6 +74,7 @@ export interface CreateRedacaoRequest {
     imagemUrl?: string;
     file?: File;
     turmaId?: string;
+    alunoId?: string;
 }
 
 export interface CreateAvaliacaoRequest {

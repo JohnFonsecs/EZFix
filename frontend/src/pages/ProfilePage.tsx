@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../services/api';
 import { User } from '../types';
+import { useAuth } from '../components/AuthContext';
 
 interface ProfilePageProps {
     onLogout: () => void;
@@ -9,6 +10,7 @@ interface ProfilePageProps {
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onLogout }) => {
     const navigate = useNavigate();
+    const { usuarioAtual } = useAuth();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [senhaAtual, setSenhaAtual] = useState('');
     const [novaSenha, setNovaSenha] = useState('');
@@ -102,6 +104,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onLogout }) => {
                     <nav className="hidden md:flex space-x-4 lg:space-x-8">
                         <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-gray-800 bg-transparent text-sm lg:text-base">Dashboard</button>
                         <button onClick={() => navigate('/redacoes')} className="text-gray-600 hover:text-gray-800 bg-transparent text-sm lg:text-base">Redações</button>
+                        {usuarioAtual?.role === 'PROFESSOR' && (
+                            <button onClick={() => navigate('/turmas')} className="text-gray-600 hover:text-gray-800 bg-transparent text-sm lg:text-base">Turmas</button>
+                        )}
                         <button onClick={() => navigate('/perfil')} className="text-purple-600 font-semibold bg-transparent text-sm lg:text-base">Perfil</button>
                     </nav>
 
@@ -179,6 +184,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onLogout }) => {
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                                 <p className="text-gray-900">{currentUser.email}</p>
+                            </div>
+                            <div className="bg-gray-50 p-4 rounded-lg">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Conta</label>
+                                <p className="text-gray-900 flex items-center gap-2">
+                                    {currentUser.role === 'PROFESSOR' ? (
+                                        <>
+                                            <span className="text-2xl">👨‍🏫</span>
+                                            <span>Professor</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="text-2xl">🎓</span>
+                                            <span>Aluno</span>
+                                        </>
+                                    )}
+                                </p>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-lg">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">ID do Usuário</label>

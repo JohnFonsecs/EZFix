@@ -4,13 +4,10 @@ import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import RedacoesPage from './pages/RedacoesPage';
 import ProfilePage from './pages/ProfilePage';
+import TurmasPage from './pages/TurmasPage';
 import { AuthProvider, useAuth } from './components/AuthContext'; // Importa o contexto
 import { authService } from './services/api'; // Importa authService
 import './index.css';
-
-// ADICIONADO: Placeholders para páginas de Professor (criar depois)
-// import TurmasPage from './pages/professor/TurmasPage';
-// import TurmaDetailPage from './pages/professor/TurmaDetailPage';
 
 // Componente para rotas protegidas
 const RotaProtegida: React.FC<{ children: JSX.Element }> = ({ children }) => {
@@ -90,10 +87,9 @@ const AppRoutes: React.FC = () => {
                 }
             />
 
-            {/* ADICIONADO: Rotas Específicas do Professor */}
-            {/* Exemplo:
+            {/* Rotas Específicas do Professor */}
             <Route
-                path="/turmas" // Rota para listar turmas do professor
+                path="/turmas"
                 element={
                     <RotaProtegida>
                         <RotaProfessor>
@@ -102,17 +98,6 @@ const AppRoutes: React.FC = () => {
                     </RotaProtegida>
                 }
             />
-            <Route
-                path="/turmas/:id" // Rota para detalhes de uma turma específica
-                element={
-                    <RotaProtegida>
-                        <RotaProfessor>
-                             <TurmaDetailPage onLogout={logout} />
-                        </RotaProfessor>
-                    </RotaProtegida>
-                }
-            />
-            */}
 
 
             {/* Rota Raiz - Redireciona com base na autenticação */}
